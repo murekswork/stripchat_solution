@@ -13,8 +13,6 @@
 {% load crispy_forms_tags %}
 
 <main>
-    <h1 class="visually-hidden">Heroes examples</h1>
-
     <div class="px-4 py-5 my-5 text-center">
         <img class="d-block mx-auto mb-4"
              src="data:image/png;base64,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"
@@ -25,7 +23,7 @@
             <form action="" method="post">
                 {% csrf_token %}
                 {{ form|crispy }}
-                <button type="submit" class="btn btn-primary btn-md px-4 gap-3">Начать</button>
+                <button type="submit" class="btn btn-danger btn-md px-4 gap-3">Начать</button>
             </form>
         </div>
 
