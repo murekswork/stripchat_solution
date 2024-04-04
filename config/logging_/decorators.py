@@ -12,7 +12,7 @@ def log_exception(logger: logging.Logger):
                 logger.warning("{} action successfully completed".format(func.__name__))
                 return result
             except Exception as exc:
-                raise Exception("{} exception occured: {} ".format(func.__name__, exc))
+                raise Exception("{} exception occured: {} ".format(func.__name__, exc)
 
         return wrapper
 

@@ -1,13 +1,13 @@
 from django.shortcuts import get_object_or_404
 from django.views.generic import FormView
 
-from .forms import SolutionForm
+from .forms import ObserveForm
 from accounts.models import StripChatUser
 from .services.parsing_service import run_in_thread
 
 
 class MainPageView(FormView):
-    form_class = SolutionForm
+    form_class = ObserveForm
     template_name = "main.html"
 
     def post(self, request, *args, **kwargs):
