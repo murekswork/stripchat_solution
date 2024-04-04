@@ -50,8 +50,6 @@ class StripChatLoggingService:
     @log_exception(parsing_logger)
     def input_account_credentials(self, username: str, password: str) -> None:
         """Method to enter provided uname and pass to login inputs"""
-        username = username
-        password = password
         self.page.wait_for_selector("input[id='login_login_or_email']").fill(username)
         self.page.wait_for_selector("input[id='login_password']").fill(password)
 
