@@ -9,7 +9,7 @@ git clone https://github.com/murekswork/stripchat_solution
 cd stripchat_solution
 ```
 
-Для создания виртуального окружения ввести команды:
+Для создания виртуального окружения:
 ```
 Для linux / mac:
 python3 -m venv venv
@@ -17,9 +17,13 @@ python3 -m venv venv
 Для windows:
 python -m venv venv
 ```
+Активировать виртуальное окружение и установить pip-tools:
+```
+source venv/bin/activate && pip install pip-tools
+```
 
 ### Зависимости
-а) Для установки зависимостей в директории c Makefile ввести команды (!нужно чтобы пк мог работать с Make файлами)
+а) Для установки зависимостей в директории c Makefile и с активированным venv ввести команды (!нужно чтобы пк мог работать с Make файлами)
 ```
 make deps
 make setup-playwright
