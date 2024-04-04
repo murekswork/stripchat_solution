@@ -3,7 +3,7 @@ from django import forms
 from accounts.models import StripChatUser
 
 
-class SolutionForm(forms.Form):
+class ObserveForm(forms.Form):
     user = forms.ModelChoiceField(
         queryset=StripChatUser.objects.all(), label="Пользователь для входа"
     )
