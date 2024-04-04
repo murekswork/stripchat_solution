@@ -1,3 +1,7 @@
 django>5
 pytest-playwright
+django-environ
 2captcha-python
+django-crispy-forms
+crispy-bootstrap5
+

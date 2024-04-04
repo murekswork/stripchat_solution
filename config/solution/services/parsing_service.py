@@ -7,69 +7,63 @@ from playwright.sync_api import sync_playwright, Page, Frame, ElementHandle
 from twocaptcha import TwoCaptcha
 
 from accounts.models import StripChatUser
+from logging_.decorators import log_exception
+
+parsing_logger = logging.getLogger(name="StripChatService logger")
+captcha_logger = logging.getLogger(name="CaptchaSolver logger")
 
 
-class ParserService:
-
+class StripChatLoggingService:
     def __init__(self, pw):
-        self.logger = logging.getLogger("ParserService")
         self.playwright = pw
         self.page: Page
         self.captcha_link: str | None = None
 
-    def create_browser(self) -> Page:
+    @log_exception(parsing_logger)
+    def get_browser_page(self) -> Page:
         browser = self.playwright.webkit.launch(headless=False)
         context = browser.new_context(**self.playwright.devices["iPhone 6"])
         page = context.new_page()
         self.page = page
         page.goto("https://stripchat.global/login")
-        self.logger.debug("CREATED BROWSER")
         return page
 
-    def get_captcha_content_frame(self, page: Page) -> Frame:
-        self.logger.debug("GOT CAPTCHA CONTENT FRAME")
-        captcha_frame_selector = page.wait_for_selector("iframe[src*='recaptcha/api2']")
+    @log_exception(parsing_logger)
+    def get_captcha_content_frame(self) -> Frame:
+        captcha_frame_selector = self.page.wait_for_selector(
+            "iframe[src*='recaptcha/api2']"
+        )
         self.set_captcha_link(captcha_frame_selector)
         captcha_frame_content = captcha_frame_selector.content_frame()
         return captcha_frame_content
 
-    def set_captcha_link(self, captcha_frame: ElementHandle):
-        self.logger.debug("SET CAPTCHA LINK")
+    @log_exception(parsing_logger)
+    def set_captcha_link(self, captcha_frame: ElementHandle) -> None:
         self.captcha_link = captcha_frame.get_attribute("src")
 
-    def click_robot_checkbox(self, captcha_frame: Frame):
-        self.logger.debug("CLICKED ROBOT CHECKBOX")
-        robot_checkbox = captcha_frame.wait_for_selector("#recaptcha-anchor")
-        robot_checkbox.click()
-
-    def get_captcha_site_key(self):
-        self.logger.debug("GETTING CAPTCHA SITE KEY")
-        if self.captcha_link:
-            site_key = self.captcha_link.split("k=")[1].split("&")[0]
-        else:
-            raise ValueError("Could not parse captcha link!")
+    @log_exception(parsing_logger)
+    def get_captcha_site_key(self) -> str:
+        site_key = self.captcha_link.split("k=")[1].split("&")[0]
         return site_key
 
-    def input_account_credentials(self, username: str, password: str):
-        self.logger.debug("START TO INPUT ACCOUNT CREDENTIALS")
+    @log_exception(parsing_logger)
+    def input_account_credentials(self, username: str, password: str) -> None:
         username = username
         password = password
         self.page.wait_for_selector("input[id='login_login_or_email']").fill(username)
         self.page.wait_for_selector("input[id='login_password']").fill(password)
 
-    def input_captcha_code(self, captcha_frame: Frame, code: str):
-        self.logger.debug("START TO INPUT CAPTCHA CODE")
+    @log_exception(parsing_logger)
+    def input_captcha_code(self, code: str) -> None:
         captcha_input = self.page.locator("#g-recaptcha-response")
-        print("Got captcha hidden response")
         captcha_input.evaluate(f'(element) => {{ element.value = "{code}"; }}')
 
-    def call_callback(self, captcha_frame: Frame, captcha_code: str):
-        self.logger.debug("CALLING CAPTCHA CALLBACK")
+    def call_captcha_callback(self, captcha_code: str) -> None:
         letters = "QWERTYUIOPASDFGHJKLZXCVBNM"
         for letter in letters:
             try:
                 resp = self.page.evaluate(
-                    f"___grecaptcha_cfg.clients['0']['{letter}']['{letter}']"
+                    "___grecaptcha_cfg.clients['0']['{}']['{}']".format(letter, letter)
                 )
                 if "callback" in resp:
                     self.page.evaluate(
@@ -79,23 +73,29 @@ class ParserService:
                     )
                     break
             except Exception as e:
-                self.logger.debug(f'{e} Could not find callback method for letter: {letter}')
                 continue
 
-    def login(self):
-        self.logger.debug("TRYING TO LOG IN")
-        try:
-            self.page.get_by_role("button", name="Log In").click()
-            self.logger.debug("LOGGED IN SUCCESSFULLY")
-        except Exception as e:
-            self.logger.debug("LOGGED IN SUCCESSFULLY")
-            self.page.get_by_role("button", name="Войти").click()
+    @log_exception(parsing_logger)
+    def login(self) -> None:
+        login_button = self.page.wait_for_selector(
+            ".btn.btn-inline-block.btn-login-alternative.btn-medium.login-form__submit"
+        )
+        login_button.click()
+        time.sleep(5)
 
-    def search(self, username: str):
-        self.page.get_by_placeholder("Search models, tags or").fill("{}".format(username))
-        self.page.get_by_placeholder("Search models, tags or").press("Enter")
-        self.logger.debug("SEARCHING FOR REQUESTED USERNAME")
-        time.sleep(30)
+    @log_exception(parsing_logger)
+    def search(self, username: str) -> None:
+        search_button = self.page.get_by_role("search").click()
+        try:
+            search_window = self.page.get_by_placeholder(
+                "Search models, tags or countries, tip menu"
+            )
+        except:
+            search_window = self.page.get_by_placeholder(
+                "Поиск по моделям, категориям, странам и меню чаевых"
+            )
+        search_window.fill(username)
+        search_window.press("Enter")
 
 
 class CaptchaSolver:
@@ -104,11 +104,11 @@ class CaptchaSolver:
         self.solver = TwoCaptcha(apiKey=api_key)
         self.site_key = site_key
 
+    @log_exception(captcha_logger)
     def solve_captcha(self) -> str:
         captcha_code = self.solver.recaptcha(
             version="v2", sitekey=self.site_key, url="https://stripchat.global/login"
         )
-        logging.warning("GOT CAPTCHA CODE RESPONSE!")
         return captcha_code["code"]
 
 
@@ -122,25 +122,37 @@ def run_in_thread(user: StripChatUser, search_username: str):
         daemon=True,
     )
     thread.start()
-    return
 
 
-def solve_captcha_and_login(user: StripChatUser, search_username: str):
-    with sync_playwright() as pw:
-        parser = ParserService(pw)
-        page = parser.create_browser()
-        captcha_frame = parser.get_captcha_content_frame(page)
-        site_key = parser.get_captcha_site_key()
+def solve_captcha_and_login(
+    user: StripChatUser, search_username: str, retries: int = 0
+):
+    try:
+        with sync_playwright() as pw:
+            parser = StripChatLoggingService(pw)
+            parser.get_browser_page()
+            captcha_frame = parser.get_captcha_content_frame()
+            site_key = parser.get_captcha_site_key()
 
-        solver = CaptchaSolver(
-            site_key=site_key, api_key=settings.CAPTCHA_SOLVER_API_KEY
-        )
-        captcha_code = solver.solve_captcha()
+            solver = CaptchaSolver(site_key, settings.CAPTCHA_SOLVER_API_KEY)
+            captcha_code = solver.solve_captcha()
 
-        parser.input_captcha_code(captcha_frame, captcha_code)
-        parser.input_account_credentials(user.username, password=user.password)
-        parser.call_callback(captcha_frame, captcha_code)
+            parser.input_captcha_code(captcha_frame, captcha_code)
+            parser.input_account_credentials(user.username, user.password)
+            parser.call_captcha_callback(captcha_code)
 
-        parser.login()
+            parser.login()
 
-        parser.search(search_username)
+            parser.search(search_username)
+            logging.debug("Solving captcha and login completed!")
+            time.sleep(20)
+    except Exception:
+        if retries < 5:
+            logging.warning(
+                "Could not solve captcha and login for {} and {}, retrying ({} / 5)!".format(
+                    user, search_username, retries
+                )
+            )
+            solve_captcha_and_login(user, search_username, retries + 1)
+        else:
+            logging.error("Could not solve captcha and reached max retries limit!")
